@@ -1,0 +1,60 @@
+# Ignore Python compiled files
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+
+# Ignore virtual environment directories
+env/
+venv/
+ENV/
+ENV.bak/
+venv.bak/
+
+# Ignore Django specific files
+*.log
+*.pot
+*.pyc
+*.mo
+*.pyo
+*.pyd
+__pycache__/
+local_settings.py
+
+# Ignore database files
+db.sqlite3
+db.sqlite3-journal
+
+# Ignore media and static files
+/media
+/staticfiles
+
+# Ignore environment variable files
+.env
+
+# Ignore IDE specific files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Ignore OS generated files
+.DS_Store
+Thumbs.db
+
+# Ignore coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+meiari/meiari/settings.py
