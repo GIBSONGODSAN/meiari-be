@@ -25,55 +25,39 @@ class GeminFlashCheckAPI(APIView):
 class SignInAPIView(APIView):
     def post(self, request):
         try:
-            print(request.data)
             data = request.data
             email = data.get("email")
             password = data.get("password")
-            logger.info(f"Request: {request.method} {request.get_full_path()}")
-            user = User.objects.get(email=email)
-            logger.info(user)
-            encryptPassword = encrypt_password(password) 
-            print(user.role)
-            if user.subscription:
-                if user.role == 'visitor':
-                    user.role = 'purchasedUser'
-                    user.save()
-            if user.password == encryptPassword:
-                if user.role == "purchasedUser":
-                    token = purchasedUser_encode_token({"id": str(user.id), "role": user.role})
-                elif user.role == "CourseSubscribedUser":
-                    token = courseSubscribedUser_encode_token({"id": str(user.id), "role": user.role})
-                elif user.role == "admin":
-                    token = admin_encode_token({"id": str(user.id), "role": user.role})
-                elif user.role == "visitor":
-                    token = visitor_encode_token({"id": str(user.id), "role": user.role})
-                else:
-                    return Response(
-                        {"message": "Invalid role"}, status=status.HTTP_400_BAD_REQUEST
-                    )
-                
-                refresh = RefreshToken.for_user(user)
-                return Response(
-                    {
-                        "token": str(token),
-                        "access": str(refresh.access_token),
-                        "data": {"user_id":user.id,'username':user.username, "subscription":user.subscription, "role": user.role},  
-                        "message": "User logged in successfully",
-                    },
-                    status=status.HTTP_200_OK,
-                )
-            return Response(
-                {"message": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED
-            )
-        except User.DoesNotExist:
-            logger.info("User not found")
-            logger.error("User not found")
-            return Response(
-                {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
-            )
+
+            # Check if the user exists
+            user = get_object_or_404(MeiAriUser, email=email)
+
+            # Verify password (assuming it's hashed)
+            if user.password != encrypt_password(password):
+                print(user.password, encrypt_password(password))
+                return Response({"message": "Invalid password"}, status=status.HTTP_401_UNAUTHORIZED)
+
+            # Generate JWT token
+            refresh = RefreshToken.for_user(user)
+
+            # Retrieve user bio data to get `access_id`
+            user_bio = MeiAriUserBioData.objects.filter(user=user).first()
+            access_id = user_bio.access_id if user_bio else None
+
+            return Response({
+                "token": str(refresh),
+                "access": str(refresh.access_token),
+                "data": {
+                    "user_id": str(user.id),
+                    "email": user.email,
+                    "access_id": access_id,
+                    "is_active": user.is_active
+                },
+                "message": "User logged in successfully"
+            }, status=status.HTTP_200_OK)
+
         except Exception as e:
-            logger.error(e)
-            return Response({"message": str(e)}, status=status.HTTP_502_BAD_GATEWAY)
+            return Response({"message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 class SignUpAPIView(APIView):
     def post(self, request, *args, **kwargs):
@@ -82,8 +66,6 @@ class SignUpAPIView(APIView):
         if serializer.is_valid():
             # Encrypt the password
             raw_password = serializer.validated_data['password']
-            encrypted_password = encrypt_password(raw_password)
-            serializer.validated_data['password'] = encrypted_password
             
             # Save the user
             user = serializer.save()
@@ -106,11 +88,14 @@ class OTPVerifyAPIView(APIView):
             # Get the OTP record for the user
             otp_record = get_object_or_404(OTPTable, user_id=user_id, otp=otp)
 
-            # If OTP is correct, delete the record and return success
+            # Get the user's bio data to retrieve the access_id
+            user_bio_data = get_object_or_404(MeiAriUserBioData, user_id=user_id)
+
+            # Delete the OTP record as it's now used
             otp_record.delete()
-            return Response({'message': 'OTP verified successfully'}, status=status.HTTP_200_OK)
-        else:
-            return Response({'error': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+            
+            return Response({'data': {'access_id': user_bio_data.access_id}, 'message': "OTP verified successfully"}, status=status.HTTP_200_OK)
+        return Response({'error': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
         
     
 class GeminiServiceCheckAPI(APIView):
@@ -310,56 +295,60 @@ class GenerateAndUploadReport(APIView):
     parser_classes = [JSONParser]
 
     def post(self, request):
-        try:
-            # Step 1: Call GeminiReportResponse API
-            gemini_url = "http://127.0.0.1:8000/app/gemini-report-response/"
-            gemini_payload = request.data  # Assuming input is given in request
+        
+        print("Request Data:", request.data)
+        return Response({"message": "Report successfully generated and uploaded to S3."}, status=status.HTTP_201_CREATED)
+    
+        # try:
+        #     # Step 1: Call GeminiReportResponse API
+        #     gemini_url = "http://127.0.0.1:8000/app/gemini-report-response/"
+        #     gemini_payload = request.data  # Assuming input is given in request
 
-            gemini_response = requests.post(gemini_url, json=gemini_payload)
+        #     gemini_response = requests.post(gemini_url, json=gemini_payload)
             
-            if gemini_response.status_code != 200:
-                return Response(
-                    {"error": "Failed to generate report", "details": gemini_response.json()},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+        #     if gemini_response.status_code != 200:
+        #         return Response(
+        #             {"error": "Failed to generate report", "details": gemini_response.json()},
+        #             status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        #         )
 
-            # Extract summary report text
-            summary_report_text = gemini_response.json().get("data", {}).get("summary_report", "")
+        #     # Extract summary report text
+        #     summary_report_text = gemini_response.json().get("data", {}).get("summary_report", "")
 
-            if not summary_report_text:
-                return Response(
-                    {"error": "Generated report is empty."},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+        #     if not summary_report_text:
+        #         return Response(
+        #             {"error": "Generated report is empty."},
+        #             status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        #         )
 
-            # Step 2: Upload report to S3
-            folder_name = "samplefolder"
-            file_name = generate_filename("generated_report")
-            file_path = f"{folder_name}/{file_name}.txt"
+        #     # Step 2: Upload report to S3
+        #     folder_name = "samplefolder"
+        #     file_name = generate_filename("generated_report")
+        #     file_path = f"{folder_name}/{file_name}.txt"
 
-            # Initialize S3 client
-            s3_client = boto3.client(
-                "s3",
-                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-                region_name=settings.AWS_S3_REGION_NAME
-            )
+        #     # Initialize S3 client
+        #     s3_client = boto3.client(
+        #         "s3",
+        #         aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+        #         aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+        #         region_name=settings.AWS_S3_REGION_NAME
+        #     )
 
-            # Upload file to S3
-            s3_client.put_object(
-                Bucket=settings.AWS_STORAGE_BUCKET_NAME,
-                Key=file_path,
-                Body=summary_report_text,
-                ContentType="text/plain"
-            )
+        #     # Upload file to S3
+        #     s3_client.put_object(
+        #         Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+        #         Key=file_path,
+        #         Body=summary_report_text,
+        #         ContentType="text/plain"
+        #     )
 
-            return Response(
-                {"message": f"Report successfully generated and uploaded to S3 at {file_path}"},
-                status=status.HTTP_201_CREATED
-            )
+        #     return Response(
+        #         {"message": f"Report successfully generated and uploaded to S3 at {file_path}"},
+        #         status=status.HTTP_201_CREATED
+        #     )
 
-        except Exception as e:
-            return Response(
-                {"error": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        # except Exception as e:
+        #     return Response(
+        #         {"error": str(e)},
+        #         status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        #     )

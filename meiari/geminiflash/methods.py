@@ -28,6 +28,13 @@ def encrypt_password(raw_password):
 def generate_otp():
     return random.randint(1000, 9999)
 
+def meiariUser_encode_token(payload: dict):
+    payload["exp"] = datetime.datetime.now(
+        tz=datetime.timezone.utc
+    ) + datetime.timedelta(days=7)
+    token = jwt.encode(payload, "meiariUser_key", algorithm="HS256")
+    return token
+
 class EmailService:
     def send_otp_email(self, user):
         """Generate OTP, store it in the database, and send it via email."""

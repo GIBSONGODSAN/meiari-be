@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import ( GeminFlashCheckAPI, GeminiServiceCheckAPI, ReceiveFormDataAPIView, CreateS3FolderView, ListS3FoldersView,
-                     ListS3FilesView, CreateS3TextFileView, GeminiReportResponse, GenerateAndUploadReport, SignUpAPIView, OTPVerifyAPIView ) 
+                     ListS3FilesView, CreateS3TextFileView, GeminiReportResponse, GenerateAndUploadReport, SignUpAPIView, OTPVerifyAPIView,
+                     SignInAPIView) 
 
 urlpatterns = [
     path('check/', GeminFlashCheckAPI.as_view(), name = 'geminiapp-check'),
@@ -16,6 +17,7 @@ urlpatterns = [
     path("create-txt-file/", CreateS3TextFileView.as_view(), name="create-s3-txt-file"),
     
     path("signup/", SignUpAPIView.as_view(), name="signup"),
+    path("signin/", SignInAPIView.as_view(), name="signin"),
     path("verify-otp/", OTPVerifyAPIView.as_view(), name="verify_otp"),
 
 ]
