@@ -295,60 +295,57 @@ class GenerateAndUploadReport(APIView):
     parser_classes = [JSONParser]
 
     def post(self, request):
-        
-        print("Request Data:", request.data)
-        return Response({"message": "Report successfully generated and uploaded to S3."}, status=status.HTTP_201_CREATED)
-    
-        # try:
-        #     # Step 1: Call GeminiReportResponse API
-        #     gemini_url = "http://127.0.0.1:8000/app/gemini-report-response/"
-        #     gemini_payload = request.data  # Assuming input is given in request
+        print("Request Data:", request.data)    
+        try:
+            # Step 1: Call GeminiReportResponse API
+            gemini_url = "http://127.0.0.1:8000/app/gemini-report-response/"
+            gemini_payload = request.data  # Assuming input is given in request
 
-        #     gemini_response = requests.post(gemini_url, json=gemini_payload)
+            gemini_response = requests.post(gemini_url, json=gemini_payload)
             
-        #     if gemini_response.status_code != 200:
-        #         return Response(
-        #             {"error": "Failed to generate report", "details": gemini_response.json()},
-        #             status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        #         )
+            if gemini_response.status_code != 200:
+                return Response(
+                    {"error": "Failed to generate report", "details": gemini_response.json()},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
 
-        #     # Extract summary report text
-        #     summary_report_text = gemini_response.json().get("data", {}).get("summary_report", "")
+            # Extract summary report text
+            summary_report_text = gemini_response.json().get("data", {}).get("summary_report", "")
 
-        #     if not summary_report_text:
-        #         return Response(
-        #             {"error": "Generated report is empty."},
-        #             status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        #         )
+            if not summary_report_text:
+                return Response(
+                    {"error": "Generated report is empty."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
 
-        #     # Step 2: Upload report to S3
-        #     folder_name = "samplefolder"
-        #     file_name = generate_filename("generated_report")
-        #     file_path = f"{folder_name}/{file_name}.txt"
+            # Step 2: Upload report to S3
+            folder_name = "samplefolder"
+            file_name = generate_filename("generated_report")
+            file_path = f"{folder_name}/{file_name}.txt"
 
-        #     # Initialize S3 client
-        #     s3_client = boto3.client(
-        #         "s3",
-        #         aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-        #         aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-        #         region_name=settings.AWS_S3_REGION_NAME
-        #     )
+            # Initialize S3 client
+            s3_client = boto3.client(
+                "s3",
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                region_name=settings.AWS_S3_REGION_NAME
+            )
 
-        #     # Upload file to S3
-        #     s3_client.put_object(
-        #         Bucket=settings.AWS_STORAGE_BUCKET_NAME,
-        #         Key=file_path,
-        #         Body=summary_report_text,
-        #         ContentType="text/plain"
-        #     )
+            # Upload file to S3
+            s3_client.put_object(
+                Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+                Key=file_path,
+                Body=summary_report_text,
+                ContentType="text/plain"
+            )
 
-        #     return Response(
-        #         {"message": f"Report successfully generated and uploaded to S3 at {file_path}"},
-        #         status=status.HTTP_201_CREATED
-        #     )
+            return Response(
+                {"message": f"Report successfully generated and uploaded to S3 at {file_path}"},
+                status=status.HTTP_201_CREATED
+            )
 
-        # except Exception as e:
-        #     return Response(
-        #         {"error": str(e)},
-        #         status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        #     )
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
